@@ -1,0 +1,22 @@
+{
+	"folders": [
+		{
+			"path": "/home/jan/jukeboxfin"
+		}
+	],
+	"settings": {
+		"files.associations": {
+			"net.h": "c",
+			"json.h": "c",
+			"disk.h": "c",
+			"shared.h": "c",
+			"menu.h": "c",
+			"config.h": "c",
+			"playback.h": "c",
+			"linenoise.h": "c",
+			"mpv.h": "c",
+			"stddef.h": "c",
+			"orig_json.h": "c"
+		}
+	}
+}

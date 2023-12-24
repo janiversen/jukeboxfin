@@ -1,0 +1,6 @@
+[submodule "yajl"]
+	path = yajl
+	url = https://github.com/lloyd/yajl.git
+[submodule "jftui"]
+	path = jftui
+	url = https://github.com/Aanok/jftui.git
