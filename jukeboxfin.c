@@ -3,7 +3,11 @@
 void jukebook_run_loop()
 {
     printf("--> Starting\n");
-    jf_API_check();
+    if (!jf_API_check())
+    {
+        fprintf(stderr, "NO server");
+        return;
+    }
     jf_API_login();
 };
 
