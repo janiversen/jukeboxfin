@@ -10,11 +10,6 @@
 #include <assert.h>
 
 
-////////// GLOBALS //////////
-extern jf_global_state g_state;
-/////////////////////////////
-
-
 ////////// STATIC VARIABLES //////////
 static jf_growing_buffer s_buffer;
 static char *s_file_prefix = NULL;

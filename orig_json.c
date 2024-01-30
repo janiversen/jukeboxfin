@@ -1,8 +1,8 @@
 #include "orig_json.h"
-#include "orig_config.h"
 #include "orig_shared.h"
 #include "orig_menu.h"
 #include "orig_disk.h"
+#include "jukeboxfin.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -12,12 +12,6 @@
 #include <yajl/yajl_parse.h>
 #include <yajl/yajl_tree.h>
 #include <yajl/yajl_gen.h>
-
-
-////////// GLOBALS //////////
-extern jf_options g_options;
-extern jf_global_state g_state;
-/////////////////////////////
 
 
 ////////// STATIC VARIABLES //////////
@@ -183,8 +177,6 @@ static int jf_sax_items_map_key(void *ctx, const unsigned char *key, size_t key_
                 context->parser_state = JF_SAX_IN_ITEM_RUNTIME_TICKS_VALUE;
             } else if (JF_SAX_KEY_IS("UserData")) {
                 context->parser_state = JF_SAX_IN_USERDATA_VALUE;
-            } else if (JF_SAX_KEY_IS("Path") && g_options.try_local_files) {
-                context->parser_state = JF_SAX_IN_ITEM_PATH_VALUE;
             }
             break;
         case JF_SAX_IN_USERDATA_MAP:
@@ -755,16 +747,11 @@ void jf_json_parse_login_response(const char *payload)
     JF_JSON_TREE_PARSE_ASSERT((parsed = yajl_tree_parse(payload,
                     s_error_buffer,
                     JF_PARSER_ERROR_BUFFER_SIZE)) != NULL);
-    free(g_options.userid);
+    free(gen_userid);
     assert((tmp = YAJL_GET_STRING(jf_yajl_tree_get_assert(parsed,
                     ((const char *[]){ "User", "Id", NULL }),
                     yajl_t_string))) != NULL);
-    g_options.userid = strdup(tmp);
-    free(g_options.token);
-    assert((tmp = YAJL_GET_STRING(jf_yajl_tree_get_assert(parsed,
-                    ((const char *[]){ "AccessToken", NULL }),
-                    yajl_t_string))) != NULL);
-    g_options.token = strdup(tmp);
+    gen_userid = strdup(tmp);
     yajl_tree_free(parsed);
 }
 

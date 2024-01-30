@@ -14,13 +14,16 @@
 #include <stdlib.h>
 #include <string.h>
 
-// Main
-void jukebox_setup();
-void jukebox_run();
+// Fixed config part
+extern char *cfg_device;
+extern char *cfg_deviceid;
+extern char *cfg_version;
+extern char *cfg_token;
+extern char *cfg_server;
+extern char *cfg_username;
+extern char *cfg_password;
+extern char *gen_userid;
 
-// Config part
-char *jf_get_url();
-int jf_get_port();
-char *jf_get_user();
-char *jf_get_password();
-char *jf_get_token();
+// Main
+extern void jukebox_setup();
+extern void jukebox_run();

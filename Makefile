@@ -9,10 +9,13 @@ OBJS=$(SOURCES:%.c=build/%.o)
 
 .PHONY: all
 
-all: build/jukeboxfin
+all: clean build/jukeboxfin
 
 install: all
 	install -Dm555 build/jukeboxfin /usr/bin/jukeboxfin
+
+clean: 
+	rm -f build/*
 
 build/%.o: %.c
 	$(CC) $(CFLAGS) -c -o $@ $<

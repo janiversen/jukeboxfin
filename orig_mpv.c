@@ -1,15 +1,13 @@
 #include "orig_mpv.h"
 #include "orig_shared.h"
-#include "orig_config.h"
 #include "orig_disk.h"
+#include "jukeboxfin.h"
 
 #include <stdlib.h>
 #include <assert.h>
 
 
 ////////// GLOBAL VARIABLES //////////
-extern jf_global_state g_state;
-extern jf_options g_options;
 extern mpv_handle *g_mpv_ctx;
 //////////////////////////////////////
 
@@ -100,7 +98,7 @@ mpv_handle *jf_mpv_create(void)
     JF_MPV_ASSERT(JF_MPV_SET_OPTPROP(mpv_ctx, "input-default-bindings", MPV_FORMAT_FLAG, &mpv_flag_yes));
     JF_MPV_ASSERT(JF_MPV_SET_OPTPROP(mpv_ctx, "input-vo-keyboard", MPV_FORMAT_FLAG, &mpv_flag_yes));
     JF_MPV_ASSERT(JF_MPV_SET_OPTPROP(mpv_ctx, "input-terminal", MPV_FORMAT_FLAG, &mpv_flag_yes));
-    assert((x_emby_token = jf_concat(2, "x-emby-token: ", g_options.token)) != NULL);
+    assert((x_emby_token = jf_concat(2, "x-emby-token: ", cfg_token)) != NULL);
     JF_MPV_ASSERT(JF_MPV_SET_OPTPROP_STRING(mpv_ctx, "http-header-fields", x_emby_token));
     free(x_emby_token);
     JF_MPV_ASSERT(mpv_observe_property(mpv_ctx, 0, "time-pos", MPV_FORMAT_INT64));
@@ -109,16 +107,6 @@ mpv_handle *jf_mpv_create(void)
 
     JF_MPV_ASSERT(mpv_initialize(mpv_ctx));
 
-    // profile must be applied as a command
-    if (g_options.mpv_profile != NULL) {
-        const char *apply_profile[] = { "apply-profile", g_options.mpv_profile, NULL };
-        if (mpv_command(mpv_ctx, apply_profile) < 0) {
-            fprintf(stderr,
-                    "FATAL: could not apply mpv profile \"%s\". Are you sure it exists in mpv.conf?\n",
-                    g_options.mpv_profile);
-            jf_exit(JF_EXIT_FAILURE);
-        }
-    }
 
 // cache dirs may be set by user in profile
 #if MPV_CLIENT_API_VERSION >= MPV_MAKE_VERSION(2,1)

@@ -1,11 +1,11 @@
 #include "orig_menu.h"
 #include "orig_shared.h"
-#include "orig_config.h"
 #include "orig_net.h"
 #include "orig_disk.h"
 #include "orig_playback.h"
 #include "orig_linenoise.h"
 #include "orig_mpv.h"
+#include "jukeboxfin.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -20,8 +20,6 @@
 
 
 ////////// GLOBAL VARIABLES //////////
-extern jf_options g_options;
-extern jf_global_state g_state;
 extern mpv_handle *g_mpv_ctx;
 //////////////////////////////////////
 
@@ -354,29 +352,29 @@ static char *jf_menu_item_get_remote_url(const jf_menu_item *item)
         // Atoms
         case JF_ITEM_TYPE_AUDIO:
         case JF_ITEM_TYPE_AUDIOBOOK:
-            jf_growing_buffer_sprintf(url_buffer, 0, "%s/items/%s/file", g_options.server, item->id);
+            jf_growing_buffer_sprintf(url_buffer, 0, "%s/items/%s/file", cfg_server, item->id);
             break;
         case JF_ITEM_TYPE_VIDEO_SOURCE:
             jf_growing_buffer_sprintf(url_buffer, 0,
                 "%s/videos/%s/stream?static=true&mediasourceid=%s",
-                g_options.server,
+                cfg_server,
                 item->id,
                 item->id);
             break;
         case JF_ITEM_TYPE_EPISODE:
         case JF_ITEM_TYPE_MOVIE:
         case JF_ITEM_TYPE_MUSIC_VIDEO:
-            jf_growing_buffer_sprintf(url_buffer, 0, "/users/%s/items/%s", g_options.userid, item->id);
+            jf_growing_buffer_sprintf(url_buffer, 0, "/users/%s/items/%s", gen_userid, item->id);
             break;
         case JF_ITEM_TYPE_VIDEO_SUB:
-            jf_growing_buffer_sprintf(url_buffer, 0, "%s%s", g_options.server, item->name);
+            jf_growing_buffer_sprintf(url_buffer, 0, "%s%s", cfg_server, item->name);
             break;
         // Folders
         case JF_ITEM_TYPE_SERIES:
             jf_growing_buffer_sprintf(url_buffer, 0,
                 "/shows/%s/seasons?sortby=sortname&userid=%s%s",
                 item->id,
-                g_options.userid,
+                gen_userid,
                 s_filters_query);
             break;
         case JF_ITEM_TYPE_COLLECTION:
@@ -385,100 +383,96 @@ static char *jf_menu_item_get_remote_url(const jf_menu_item *item)
         case JF_ITEM_TYPE_SEASON:
         case JF_ITEM_TYPE_COLLECTION_MUSIC_VIDEOS:
             jf_growing_buffer_sprintf(url_buffer, 0,
-                "/users/%s/items?sortby=isfolder,parentindexnumber,indexnumber,productionyear,sortname&parentid=%s%s%s",
-                g_options.userid,
+                "/users/%s/items?sortby=isfolder,parentindexnumber,indexnumber,productionyear,sortname&parentid=%s%s",
+                gen_userid,
                 item->id,
-                s_filters_query,
-                g_options.try_local_files ? "&fields=path" : "");
+                s_filters_query);
             break;
         case JF_ITEM_TYPE_COLLECTION_MUSIC:
             if ((parent = jf_menu_stack_peek(0)) != NULL && parent->type == JF_ITEM_TYPE_FOLDER) {
                 // we are inside a "by folders" view
                 jf_growing_buffer_sprintf(url_buffer, 0,
                     "users/%s/items?sortby=isfolder,sortname&parentid=%s%s",
-                    g_options.userid,
+                    gen_userid,
                     item->id,
                     s_filters_query);
             } else {
                 jf_growing_buffer_sprintf(url_buffer, 0,
                     "/artists/albumartists?parentid=%s&userid=%s%s",
                     item->id,
-                    g_options.userid,
+                    gen_userid,
                     s_filters_query);
             }
             break;
         case JF_ITEM_TYPE_COLLECTION_SERIES:
             jf_growing_buffer_sprintf(url_buffer, 0,
                 "/users/%s/items?includeitemtypes=series&recursive=true&sortby=isfolder,sortname&parentid=%s%s",
-                g_options.userid,
+                gen_userid,
                 item->id,
                 s_filters_query);
             break;
         case JF_ITEM_TYPE_COLLECTION_MOVIES:
             jf_growing_buffer_sprintf(url_buffer, 0,
                     "/users/%s/items?includeitemtypes=movie&recursive=true&sortby=isfolder,sortname&parentid=%s%s",
-                    g_options.userid,
+                    gen_userid,
                     item->id,
                     s_filters_query);
             break;
         case JF_ITEM_TYPE_PLAYLIST:
             jf_growing_buffer_sprintf(url_buffer, 0,
-                "/playlists/%s/items?userid=%s%s",
+                "/playlists/%s/items?userid=%s",
                 item->id,
-                g_options.userid,
-                g_options.try_local_files ? "&fields=path" : "");
+                gen_userid);
             break;
         case JF_ITEM_TYPE_ARTIST:
             jf_growing_buffer_sprintf(url_buffer, 0,
                 "/users/%s/items?recursive=true&includeitemtypes=musicalbum&sortby=isfolder,productionyear,sortname&sortorder=ascending&albumartistids=%s%s",
-                g_options.userid,
+                gen_userid,
                 item->id,
                 s_filters_query);
             break;
         case JF_ITEM_TYPE_SEARCH_RESULT:
             jf_growing_buffer_sprintf(url_buffer, 0,
-                "/users/%s/items?recursive=true&searchterm=%s%s%s",
-                g_options.userid,
+                "/users/%s/items?recursive=true&searchterm=%s%s",
+                gen_userid,
                 item->name,
-                s_filters_query,
-                g_options.try_local_files ? "&fields=path" : "");
+                s_filters_query);
             break;
         // Persistent folders
         case JF_ITEM_TYPE_MENU_FAVORITES:
             jf_growing_buffer_sprintf(url_buffer, 0,
-                "/users/%s/items?recursive=true&sortby=sortname&filters=isfavorite%s%s",
-                g_options.userid,
-                s_filters_query,
-                g_options.try_local_files ? "&fields=path" : "");
+                "/users/%s/items?recursive=true&sortby=sortname&filters=isfavorite%s",
+                gen_userid,
+                s_filters_query);
             break;
         case JF_ITEM_TYPE_MENU_CONTINUE:
             jf_growing_buffer_sprintf(url_buffer, 0,
                 "/users/%s/items/resume?recursive=true&excludeItemTypes=Book",
-                g_options.userid);
+                gen_userid);
             break;
         case JF_ITEM_TYPE_MENU_NEXT_UP:
             jf_growing_buffer_sprintf(url_buffer, 0,
                 "/shows/nextup?userid=%s&nextupdatecutoff=%s",
-                g_options.userid,
+                gen_userid,
                 jf_make_date_one_year_ago());
             break;
         case JF_ITEM_TYPE_MENU_LATEST_ADDED:
             if (s_filters & JF_FILTER_IS_PLAYED) {
                 jf_growing_buffer_sprintf(url_buffer, 0,
                     "/users/%s/items/latest?recurisve=true&groupitems=true&includeitemtypes=audiobook,episode,movie,audio&limit=20&isplayed=true",
-                    g_options.userid);
+                    gen_userid);
             } else if (s_filters & JF_FILTER_IS_UNPLAYED) {
                 jf_growing_buffer_sprintf(url_buffer, 0,
                     "/users/%s/items/latest?recurisve=true&groupitems=true&includeitemtypes=audiobook,episode,movie,audio&limit=20&isplayed=false",
-                    g_options.userid);
+                    gen_userid);
             } else {
                 jf_growing_buffer_sprintf(url_buffer, 0,
                     "/users/%s/items?recursive=true&includeitemtypes=audiobook,episode,movie,musicalbum&excludelocationtypes=virtual&sortby=datecreated,sortname&sortorder=descending&limit=20",
-                    g_options.userid);
+                    gen_userid);
             }
             break;
         case JF_ITEM_TYPE_MENU_LIBRARIES:
-            jf_growing_buffer_sprintf(url_buffer, 0, "/users/%s/views", g_options.userid);
+            jf_growing_buffer_sprintf(url_buffer, 0, "/users/%s/views", gen_userid);
             break;
         case JF_ITEM_TYPE_NONE:
         case JF_ITEM_TYPE_USER_VIEW:
@@ -503,14 +497,6 @@ char *jf_menu_item_get_request_url(const jf_menu_item *item)
         case JF_ITEM_TYPE_AUDIOBOOK:
         case JF_ITEM_TYPE_VIDEO_SOURCE:
         case JF_ITEM_TYPE_VIDEO_SUB:
-            if (g_options.try_local_files
-                    && item->path
-                    && jf_disk_is_file_accessible(item->path)) {
-                char *url = strdup(item->path);
-                assert(url != NULL);
-                return url;
-            }
-            break;
         case JF_ITEM_TYPE_NONE:
         case JF_ITEM_TYPE_EPISODE:
         case JF_ITEM_TYPE_MOVIE:
@@ -892,9 +878,9 @@ static inline char *jf_menu_set_flag_request_get_url(const jf_menu_item *item, c
 {
     switch (flag_type) {
         case JF_FLAG_TYPE_PLAYED:
-            return jf_concat(4, "/users/", g_options.userid, "/playeditems/", item->id);
+            return jf_concat(4, "/users/", gen_userid, "/playeditems/", item->id);
         case JF_FLAG_TYPE_FAVORITE:
-            return jf_concat(4, "/users/", g_options.userid, "/favoriteitems/", item->id);
+            return jf_concat(4, "/users/", gen_userid, "/favoriteitems/", item->id);
     }
 
     return NULL;

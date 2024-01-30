@@ -1,10 +1,10 @@
 #include "orig_shared.h"
 #include "orig_net.h"
 #include "orig_json.h"
-#include "orig_config.h"
 #include "orig_disk.h"
 #include "orig_playback.h"
 #include "orig_menu.h"
+#include "jukeboxfin.h"
 
 
 #include <stdio.h>
@@ -21,15 +21,12 @@
 
 
 ////////// GLOBAL VARIABLES //////////
-jf_options g_options;
 jf_global_state g_state;
 mpv_handle *g_mpv_ctx = NULL;
 //////////////////////////////////////
 
 
 ////////// STATIC FUNCTIONS //////////
-static void jf_print_usage(void);
-static inline void jf_missing_arg(const char *arg);
 static inline void jf_mpv_event_dispatch(const mpv_event *event);
 //////////////////////////////////////
 
@@ -49,25 +46,6 @@ void jf_exit(int sig)
     _exit(sig == JF_EXIT_SUCCESS ? EXIT_SUCCESS : EXIT_FAILURE);
 }
 /////////////////////////////////////////
-
-
-////////// STARTUP STUFF //////////
-static void jf_print_usage(void) {
-    printf("Usage:\n");
-    printf("\t--help\n");
-    printf("\t--version\n");
-    printf("\t--config-dir <directory> (default: $XDG_CONFIG_HOME/jftui)\n");
-    printf("\t--login.\n");
-    printf("\t--no-check-updates\n");
-}
-
-
-static inline void jf_missing_arg(const char *arg)
-{
-    fprintf(stderr, "FATAL: missing parameter for argument %s\n", arg);
-    jf_print_usage();
-}
-///////////////////////////////////
 
 
 ////////// MISCELLANEOUS GARBAGE //////////
@@ -267,146 +245,15 @@ int orig_main(int argc, char *argv[])
     ///////////////////////
 
 
-    // SETUP OPTIONS
-    jf_options_init();
-    ////////////////
-
-
     // SETUP GLOBAL STATE
     srandom((unsigned)time(NULL));
     g_state = (jf_global_state){ 0 };
     assert((g_state.session_id = jf_generate_random_id(0)) != NULL);
     /////////////////////
 
-
-    // COMMAND LINE ARGUMENTS
-    i = 0;
-    while (++i < argc) {
-        if (strcmp(argv[i], "--help") == 0) {
-            jf_print_usage();
-            jf_exit(JF_EXIT_SUCCESS);
-        } else if (strcmp(argv[i], "--config-dir") == 0) {
-            if (++i >= argc) {
-                jf_missing_arg("--config-dir");
-                jf_exit(JF_EXIT_FAILURE);
-            }
-            assert((g_state.config_dir = strdup(argv[i])) != NULL);
-        } else if (strcmp(argv[i], "--login") == 0) {
-            g_state.state = JF_STATE_STARTING_LOGIN;
-        } else if (strcmp(argv[i], "--no-check-updates") == 0) {
-            g_options.check_updates = false;
-        } else if (strcmp(argv[i], "--version") == 0) {
-            printf("jftui %s, libmpv %lu.%lu, libcurl %s %s, yajl %d\n",
-                    g_options.version,
-                    mpv_client_api_version() >> 16,
-                    mpv_client_api_version() & 0xFFFF,
-                    curl_version_info(CURLVERSION_NOW)->version,
-                    curl_version_info(CURLVERSION_NOW)->ssl_version,
-                    yajl_version());
-            jf_exit(JF_EXIT_SUCCESS);
-        } else {
-            fprintf(stderr, "FATAL: unrecognized argument %s.\n", argv[i]);
-            jf_print_usage();
-            jf_exit(JF_EXIT_FAILURE);
-        }
-    }
-    /////////////////////////
-
-
     // SETUP DISK
     jf_disk_init();
     /////////////
-
-
-    // READ AND PARSE CONFIGURATION FILE
-    // apply config directory location default unless there was user override
-    if (g_state.config_dir == NULL
-            && (g_state.config_dir = jf_config_get_default_dir()) == NULL) {
-        fprintf(stderr, "FATAL: could not acquire configuration directory location. $HOME could not be read and --config-dir was not passed.\n");
-        jf_exit(JF_EXIT_FAILURE);
-    }
-    // get expected location of config file
-    config_path = jf_concat(2, g_state.config_dir, "/settings");
-
-    // check config file exists
-    if (jf_disk_is_file_accessible(config_path)) {
-        // it's there: read it
-        jf_config_read(config_path);
-        if (strcmp(g_options.version, JF_VERSION) < 0) {
-            printf("Attention: jftui was updated from the last time it was run. Check the changelog on Github.\n");
-            free(g_options.version);
-            assert((g_options.version = strdup(JF_VERSION)) != NULL);
-        }
-        // if fundamental fields are missing (file corrupted for some reason)
-        if (g_options.server == NULL
-                || g_options.userid == NULL
-                || g_options.token == NULL) {
-            if (! jf_menu_user_ask_yn("Error: settings file missing fundamental fields. Would you like to go through manual configuration?")) {
-                jf_exit(JF_EXIT_SUCCESS);
-            }
-            free(g_options.server);
-            free(g_options.userid);
-            free(g_options.token);
-            g_state.state = JF_STATE_STARTING_FULL_CONFIG;
-        }
-    } else if (errno == ENOENT) {
-        // it's not there
-        if (! jf_menu_user_ask_yn("Settings file not found. Would you like to configure jftui?")) {
-            jf_exit(JF_EXIT_SUCCESS);
-        }
-        g_state.state = JF_STATE_STARTING_FULL_CONFIG;
-    } else {
-        fprintf(stderr, "FATAL: access for settings file at location %s: %s.\n",
-            config_path, strerror(errno));
-        jf_exit(JF_EXIT_FAILURE);
-    }
-    ////////////////////////////////////
-
-
-    // UPDATE CHECK
-    // it runs asynchronously while we do other stuff
-    if (g_options.check_updates) {
-        reply_alt = jf_net_request(NULL, JF_REQUEST_CHECK_UPDATE, JF_HTTP_GET, NULL);
-    }
-    ///////////////
-
-
-    // INTERACTIVE CONFIG
-    if (g_state.state == JF_STATE_STARTING_FULL_CONFIG) {
-        jf_config_ask_user();
-    } else if (g_state.state == JF_STATE_STARTING_LOGIN) {
-        jf_config_ask_user_login();
-    }
-
-    // save to disk
-    if (g_state.state == JF_STATE_STARTING_FULL_CONFIG
-            || g_state.state == JF_STATE_STARTING_LOGIN) {
-        if (jf_config_write(config_path)) {
-            printf("Please restart to apply the new settings.\n");
-            jf_exit(JF_EXIT_SUCCESS);
-        } else {
-            fprintf(stderr, "FATAL: Configuration failed.\n");
-            jf_exit(JF_EXIT_FAILURE);
-        }
-    } else {
-        // we don't consider a failure to save config fatal during normal startup
-        jf_config_write(config_path);
-        free(config_path);
-    }
-    /////////////////////
-
-
-    // SERVER NAME AND VERSION
-    // this doubles up as a check for connectivity and correct login parameters
-    reply = jf_net_request("/system/info", JF_REQUEST_IN_MEMORY, JF_HTTP_GET, NULL);
-    if (JF_REPLY_PTR_HAS_ERROR(reply)) {
-        fprintf(stderr, "FATAL: could not reach server: %s.\n", jf_reply_error_string(reply));
-        jf_exit(JF_EXIT_FAILURE);
-    }
-    jf_json_parse_system_info_response(reply->payload);
-    jf_reply_free(reply);
-    //////////////
-
 
     // SETUP MENU
     jf_menu_init();
@@ -418,21 +265,6 @@ int orig_main(int argc, char *argv[])
         fprintf(stderr, "Warning: could not set numeric locale to sane standard. mpv might refuse to work.\n");
     }
     ////////////
-
-
-    // resolve update check
-    if (g_options.check_updates) {
-        jf_net_await(reply_alt);
-        if (JF_REPLY_PTR_HAS_ERROR(reply_alt)) {
-            fprintf(stderr, "Warning: could not fetch latest version info: %s.\n",
-                    jf_reply_error_string(reply_alt));
-        } else if (strcmp(JF_VERSION, reply_alt->payload) < 0) {
-            printf("Attention: jftui v%s is available for update.\n",
-                    reply_alt->payload);
-        }
-        jf_reply_free(reply_alt);
-    }
-    ///////////////////////
 
 
     ////////// MAIN LOOP //////////

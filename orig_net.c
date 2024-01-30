@@ -1,7 +1,7 @@
 #include "orig_net.h"
-#include "orig_config.h"
 #include "orig_shared.h"
 #include "orig_json.h"
+#include "jukeboxfin.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -14,7 +14,6 @@
 
 
 ////////// GLOBAL VARIABLES //////////
-extern jf_options g_options;
 extern jf_global_state g_state;
 //////////////////////////////////////
 
@@ -269,30 +268,24 @@ static void jf_net_init(void)
         return;
     }
 
-    // TODO check libcurl version
-
     // global config stuff
     assert(curl_global_init(CURL_GLOBAL_ALL | CURL_GLOBAL_SSL) == 0);
-    // security bypass
-    if (! g_options.ssl_verifyhost) {
-        curl_easy_setopt(s_handle, CURLOPT_SSL_VERIFYHOST, 0);
-    }
     // headers
     assert((s_headers = curl_slist_append(s_headers,
                     "accept: application/json; charset=utf-8")) != NULL);
     if (g_state.state == JF_STATE_STARTING_LOGIN
             || g_state.state == JF_STATE_STARTING_FULL_CONFIG) {
         // the only thing we will do is a POST for login
-        tmp = jf_concat(9,
-                "x-emby-authorization: Mediabrowser Client=\"", g_options.client,
-                "\", Device=\"", g_options.device,
-                "\", DeviceId=\"", g_options.deviceid,
-                "\", Version=\"", g_options.version,
+        tmp = jf_concat(8,
+                "x-emby-authorization: Mediabrowser Client=\"jukeboxfin",
+                "\", Device=\"", cfg_device,
+                "\", DeviceId=\"", cfg_deviceid,
+                "\", Version=\"", cfg_version,
                 "\"");
         assert((s_headers_POST = curl_slist_append(s_headers, tmp)) != NULL);
     } else {
         // main behaviour
-        tmp = jf_concat(2, "x-mediabrowser-token: ", g_options.token);
+        tmp = jf_concat(2, "x-mediabrowser-token: ", cfg_token);
         assert((s_headers = curl_slist_append(s_headers, tmp)) != NULL);
     }
     free(tmp);
@@ -408,7 +401,7 @@ static void jf_net_handle_before_perform(CURL *handle,
                     CURLOPT_URL,
                     "https://github.com/Aanok/jftui/releases/latest"));
     } else {
-        url = jf_concat(2, g_options.server, resource);
+        url = jf_concat(2, cfg_server, resource);
         JF_CURL_ASSERT(curl_easy_setopt(handle, CURLOPT_URL, url));
         free(url);
     }

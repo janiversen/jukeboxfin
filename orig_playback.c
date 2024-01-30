@@ -1,11 +1,11 @@
 #include "orig_playback.h"
 #include "orig_disk.h"
-#include "orig_config.h"
 #include "orig_json.h"
 #include "orig_net.h"
 #include "orig_menu.h"
 #include "orig_shared.h"
 #include "orig_mpv.h"
+#include "jukeboxfin.h"
 
 
 #include <stdlib.h>
@@ -14,8 +14,6 @@
 #include <unistd.h>
 
 ////////// GLOBAL VARIABLES //////////
-extern jf_global_state g_state;
-extern jf_options g_options;
 extern mpv_handle *g_mpv_ctx;
 //////////////////////////////////////
 
@@ -451,7 +449,7 @@ static inline bool jf_playback_populate_video_ticks(jf_menu_item *item)
         jf_growing_buffer_empty(part_url);
         jf_growing_buffer_sprintf(part_url, 0,
                 "/users/%s/items/%s",
-                g_options.userid,
+                gen_userid,
                 item->children[i]->id);
         replies[i - 1] = jf_net_request(part_url->buf,
                 JF_REQUEST_ASYNC_IN_MEMORY,

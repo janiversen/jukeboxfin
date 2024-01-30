@@ -1,6 +1,4 @@
 #include "orig_shared.h"
-#include "orig_config.h"
-
 
 #include <stdlib.h>
 #include <assert.h>
@@ -10,8 +8,6 @@
 #include <stdarg.h>
 
 ////////// GLOBALS //////////
-extern jf_global_state g_state;
-extern jf_options g_options;
 extern mpv_handle *g_mpv_ctx;
 /////////////////////////////
 
